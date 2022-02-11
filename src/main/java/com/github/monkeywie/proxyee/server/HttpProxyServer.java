@@ -194,7 +194,6 @@ public class HttpProxyServer {
 
                         // connection
                         ch.pipeline().addLast(Socks5CommandRequestDecoder.class.getName(), new Socks5CommandRequestDecoder());
-                        Socks5Upstream upstream = new Socks5Upstream(new Address("127.0.0.1", 1080));
                         ch.pipeline().addLast(Socks5CommandRequestHandler.class.getName(), new Socks5CommandRequestHandler());
 
                         ch.pipeline().addLast("httpCodec", new HttpServerCodec());
