@@ -1,5 +1,10 @@
 package com.github.monkeywie.proxyee.server;
 
+import cc.xpcas.nettysocks.config.Address;
+import cc.xpcas.nettysocks.handler.Socks5CommandRequestHandler;
+import cc.xpcas.nettysocks.handler.Socks5InitialRequestHandler;
+import cc.xpcas.nettysocks.upstream.Socks5Upstream;
+import com.github.monkeywie.proxyee.codec.StrategyCodecHandler;
 import com.github.monkeywie.proxyee.crt.CertPool;
 import com.github.monkeywie.proxyee.crt.CertUtil;
 import com.github.monkeywie.proxyee.exception.HttpProxyExceptionHandle;
@@ -15,6 +20,10 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.codec.socksx.v5.Socks5CommandRequestDecoder;
+import io.netty.handler.codec.socksx.v5.Socks5InitialRequestDecoder;
+import io.netty.handler.codec.socksx.v5.Socks5PasswordAuthRequestDecoder;
+import io.netty.handler.codec.socksx.v5.Socks5ServerEncoder;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.SslContextBuilder;
@@ -176,6 +185,18 @@ public class HttpProxyServer {
 
                     @Override
                     protected void initChannel(Channel ch) throws Exception {
+                        System.out.println("handle bind, channel is connected ?" + ch.isOpen());
+                        ch.pipeline().addLast("strategyCodecHandler", new StrategyCodecHandler());
+                        // 负责将输出的 Socks5Message 转为 ByteBuf
+                        ch.pipeline().addLast(Socks5ServerEncoder.DEFAULT);
+                        ch.pipeline().addLast(Socks5InitialRequestDecoder.class.getName(), new Socks5InitialRequestDecoder());
+                        ch.pipeline().addLast(Socks5InitialRequestHandler.class.getName(), new Socks5InitialRequestHandler(false));
+
+                        // connection
+                        ch.pipeline().addLast(Socks5CommandRequestDecoder.class.getName(), new Socks5CommandRequestDecoder());
+                        Socks5Upstream upstream = new Socks5Upstream(new Address("127.0.0.1", 1080));
+                        ch.pipeline().addLast(Socks5CommandRequestHandler.class.getName(), new Socks5CommandRequestHandler());
+
                         ch.pipeline().addLast("httpCodec", new HttpServerCodec());
                         ch.pipeline().addLast("serverHandle",
                                 new HttpProxyServerHandler(serverConfig, proxyInterceptInitializer, proxyConfig,
